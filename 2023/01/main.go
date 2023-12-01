@@ -30,7 +30,7 @@ func digitNames() map[string]int {
 }
 
 func main() {
-	textLines := readInput("input")
+	textLines := readInput("./input")
 	fmt.Printf("Number of lines: %v\n", len(textLines))
 
 	linesProcessed := 0
