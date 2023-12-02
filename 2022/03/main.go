@@ -38,21 +38,48 @@ func main() {
 	//fmt.Printf("Z-96: %v\n", int('Z'-96))
 	//fmt.Printf("A-96+58: %v\n", int('A'-96+58))
 	//fmt.Printf("Z-96+58: %v\n", int('Z'-96+58))
-	solve()
+
+	inputLines := readInput("./input")
+	fmt.Printf("Number of lines: %v\n", len(inputLines))
+	total, linesProcessed := solve(inputLines)
+	total, linesProcessed = solve2(inputLines)
+	fmt.Printf("Processed %v lines. Total: %v", linesProcessed, total)
+
 }
 
-func solve() {
-	textLines := readInput("./input")
-	fmt.Printf("Number of lines: %v\n", len(textLines))
+func solve2(inputLines []string) (int, int) {
 	linesProcessed := 0
 	total := 0
 
-	for _, rucksack := range textLines {
+	for i := 0; i < len(inputLines); i += 3 {
+		elf1 := inputLines[i]
+		elf2 := inputLines[i+1]
+		elf3 := inputLines[i+2]
+		badge := '0'
+
+		for _, char := range elf1 {
+			if strings.ContainsRune(elf2, char) && strings.ContainsRune(elf3, char) {
+				badge = char
+				break
+			}
+		}
+		total += priorityFrom(badge)
+		linesProcessed += 3
+	}
+
+	return total, linesProcessed
+}
+
+func solve(inputLines []string) (int, int) {
+	linesProcessed := 0
+	total := 0
+
+	for _, rucksack := range inputLines {
 		total += getPriority(rucksack)
 		linesProcessed++
 	}
 
-	fmt.Printf("Processed %v lines. Total: %v", linesProcessed, total)
+	return total, linesProcessed
 }
 
 func getPriority(rucksack string) int {
@@ -60,16 +87,21 @@ func getPriority(rucksack string) int {
 	priority := 0
 	for _, char := range left {
 		if strings.ContainsRune(right, char) {
-			priority = int(char - 96)
-			if priority < 1 {
-				priority += 58
-			}
+			priority = priorityFrom(char)
 			fmt.Printf("%v:%v", string(char), priority)
 			break
 		}
 	}
 	fmt.Printf("\t%v = %v + %v\n", rucksack, left, right)
 	return priority
+}
+
+func priorityFrom(char int32) int {
+	result := int(char - 96)
+	if result < 1 {
+		result += 58
+	}
+	return result
 }
 
 func getCompartments(rucksack string) (string, string) {
