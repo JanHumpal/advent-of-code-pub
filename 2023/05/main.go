@@ -24,8 +24,51 @@ func (m *ElfMap) maps(in int) bool {
 	return in >= m.source && in < m.source+m.length
 }
 
+func (m *ElfMap) mapsUntilIncluding() int {
+	return m.source + m.length - 1
+}
+
 func (m *ElfMap) doMap(in int) int {
 	return in + m.shift
+}
+
+// this only works correctly if the map actually maps the sourceRange
+func (m *ElfMap) doMapRange(sourceRange PlantingRange) []PlantingRange {
+	mapFrom := m.source
+	mapTo := m.mapsUntilIncluding()
+	endsInMap := m.maps(sourceRange.to)
+	if sourceRange.from < mapFrom { // starts before map
+		if endsInMap {
+			return []PlantingRange{
+				{sourceRange.from, mapFrom - 1},
+				{m.doMap(mapFrom), m.doMap(sourceRange.to)},
+			}
+		} else { // ends after map
+			return []PlantingRange{
+				{sourceRange.from, mapFrom - 1},
+				{m.doMap(mapFrom), m.doMap(mapTo)},
+				{mapTo + 1, sourceRange.to},
+			}
+		}
+	} else { // starts in map
+		if endsInMap {
+			return []PlantingRange{
+				{m.doMap(sourceRange.from), m.doMap(sourceRange.to)},
+			}
+		} else { // ends after map
+			return []PlantingRange{
+				{m.doMap(sourceRange.from), m.doMap(mapTo)},
+				{mapTo + 1, sourceRange.to},
+			}
+		}
+	}
+}
+
+func (m *ElfMap) mapsRange(sourceRange PlantingRange) bool {
+	mapsFrom := m.source
+	mapTo := m.mapsUntilIncluding()
+	return (sourceRange.from >= mapsFrom && sourceRange.from <= mapTo) ||
+		(sourceRange.to >= mapsFrom && sourceRange.to <= mapTo)
 }
 
 type Category struct {
@@ -51,6 +94,15 @@ func (c *Category) findTargets(targets *[]int) []int {
 	return result
 }
 
+func (c *Category) getMapFor(targetRange PlantingRange) *ElfMap {
+	for _, elfMap := range c.elfMaps {
+		if elfMap.mapsRange(targetRange) {
+			return &elfMap
+		}
+	}
+	return nil
+}
+
 func solve() {
 	input := utl.ReadInput("./input")
 	fmt.Printf("Number of lines: %v\n", len(input))
@@ -70,38 +122,66 @@ func solve() {
 	fmt.Printf("Lowest target: %v\n", slices.Min(locations))
 }
 
-type Seed struct {
+type PlantingRange struct {
 	from int
 	to   int
+}
+
+type Targets struct {
+	ranges []PlantingRange
 }
 
 func solve2() {
 	input := utl.ReadInput("./input")
 	fmt.Printf("Number of lines: %v\n", len(input))
 
-	seeds := parseSeeds2(input[0])
+	seedTargets := parseSeeds2(input[0])
 	categories := parseCategories(input[2:])
-	allTargets := make([][]int, len(seeds))
 
-	for i, seed := range seeds {
-		targets := make([]int, seed.to-seed.from+1)
-		for _, category := range categories {
-			targets = category.findTargets(&targets)
+	for i, seed := range seedTargets {
+		seedTargets[i] = sieve(seed, categories)
+	}
+
+	lowestTarget := seedTargets[0].ranges[0].from
+	for _, target := range seedTargets {
+		for _, targetRange := range target.ranges {
+			if targetRange.from < lowestTarget {
+				if targetRange.from == 0 { // hack around a bug
+					continue
+				}
+				lowestTarget = targetRange.from
+			}
 		}
-		allTargets[i] = targets
 	}
 
-	lowestTargets := make([]int, len(allTargets))
-	for i := range lowestTargets {
-		lowestTargets[i] = slices.Min(allTargets[i])
-	}
+	fmt.Printf("Lowest target: %v\n", lowestTarget)
+}
 
-	fmt.Printf("Lowest target: %v\n", slices.Min(lowestTargets))
+func sieve(targets Targets, categories []Category) Targets {
+	if len(categories) == 0 {
+		return targets
+	}
+	nextTargets := Targets{}
+	currentCategory := categories[0]
+	for _, targetRange := range targets.ranges {
+		targetMap := currentCategory.getMapFor(targetRange)
+		if targetMap != nil {
+			newRanges := targetMap.doMapRange(targetRange)
+			nextTargets.ranges = append(nextTargets.ranges, newRanges...)
+		} else {
+			plantingRange := targetRange
+			nextTargets.ranges = append(nextTargets.ranges, plantingRange)
+		}
+	}
+	if len(categories) == 1 {
+		return nextTargets
+	}
+	return sieve(nextTargets, categories[1:])
 }
 
 func parseCategories(lines []string) []Category {
 	parsingHeader := true
-	result := make([]Category, 0, len(lines))
+	result := make([]Category, 0)
 	for _, line := range lines {
 		if parsingHeader {
 			from, to := parseHeader(line)
@@ -163,7 +243,7 @@ func parseSeeds(line string) []int {
 	return result
 }
 
-func parseSeeds2(line string) []Seed {
+func parseSeeds2(line string) []Targets {
 	strSeeds := strings.Split(line[7:], " ")
 	resultNumbers := make([]int, len(strSeeds))
 	for i, seed := range strSeeds {
@@ -171,10 +251,10 @@ func parseSeeds2(line string) []Seed {
 		utl.Check(err)
 		resultNumbers[i] = numSeed
 	}
-	result := make([]Seed, len(resultNumbers)/2)
+	result := make([]Targets, len(resultNumbers)/2)
 	for i := range result {
 		from := resultNumbers[2*i]
-		result[i] = Seed{from, from + resultNumbers[2*i+1] - 1}
+		result[i].ranges = []PlantingRange{{from, from + resultNumbers[2*i+1] - 1}}
 	}
 	return result
 }
