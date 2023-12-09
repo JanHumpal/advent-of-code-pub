@@ -94,5 +94,24 @@ func LCM(a, b int, integers ...int) int {
 }
 
 func Last[T any](array []T) T {
-	return array[len(array)-1]
+	return array[LastI(array)]
+}
+
+func LastI[T any](array []T) int {
+	return len(array) - 1
+}
+
+// RemoveAt Remove the element at index i from array; unstable
+func RemoveAt[T any](i int, a *[]T) {
+	(*a)[i] = Last(*a) // Copy last element to index i.
+	var zero T
+	(*a)[LastI(*a)] = zero // Erase last element (write zero value).
+	*a = (*a)[:LastI(*a)]  // Truncate slice.
+}
+
+func RemoveAtStable[T any](i int, a *[]T) {
+	copy((*a)[i:], (*a)[i+1:]) // Shift a[i+1:] left one index.
+	var zero T
+	(*a)[LastI(*a)] = zero // Erase last element (write zero value).
+	*a = (*a)[:LastI(*a)]  // Truncate slice.
 }
