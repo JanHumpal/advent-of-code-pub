@@ -92,3 +92,7 @@ func LCM(a, b int, integers ...int) int {
 
 	return result
 }
+
+func Last[T any](array []T) T {
+	return array[len(array)-1]
+}
