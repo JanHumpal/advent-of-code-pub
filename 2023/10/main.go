@@ -151,52 +151,31 @@ func printLoop(pipeMap TileMap, loop PipeLoop) {
 	}
 }
 
+// calculateNestArea takes map line by line and walks along the "bottom half" of each line
+// when it hits a wall (a vertical part of pipe) it starts/stops counting nest tiles
 func calculateNestArea(pipeMap TileMap, loop PipeLoop) int {
 	nestArea := 0
-	pMap := pipesByRune()
-	pL, pF, pJ, p7, pI := pMap['L'], pMap['F'], pMap['J'], pMap['7'], pMap['|']
-	var lastTile PipeTile
-	var wallStart Pipe
+	pipes := pipesByRune()
+	pF, p7, pI := pipes['F'], pipes['7'], pipes['|'] // transitions from/to nest
+	var lastPipe Pipe
 	inNest, fromLoop, onLoop := false, false, false
 
-	for y, tileLine := range pipeMap {
-		//fmt.Println(y + 1)
-		for x, currentTile := range tileLine {
+	for _, tileLine := range pipeMap {
+		for _, currentTile := range tileLine {
 			fromLoop = onLoop
 			onLoop = loop.contains(currentTile)
 
-			lastPipe := lastTile.pipe
-			openedWall := fromLoop && (lastPipe == pL || lastPipe == pF)
-			if openedWall {
-				wallStart = lastPipe
-			}
-			closedWall := fromLoop &&
-				(lastPipe == pI ||
-					(wallStart == pL && lastPipe == p7) ||
-					(wallStart == pF && lastPipe == pJ))
-			if closedWall {
-				wallStart = Pipe{}
-				inNest = flip(inNest, x, y)
+			if fromLoop && (lastPipe == pF || lastPipe == p7 || lastPipe == pI) {
+				inNest = !inNest
 			}
 
-			lastTile = currentTile
+			lastPipe = currentTile.pipe
 			if inNest && !onLoop {
 				nestArea++
 			}
 		}
-		inNest, onLoop, fromLoop = false, false, false
 	}
 	return nestArea
-}
-
-func flip(inNest bool, x int, y int) bool {
-	inNest = !inNest
-	//if inNest {
-	//	fmt.Printf("Entering nest at [%v, %v]\n", x+1, y+1)
-	//} else {
-	//	fmt.Printf("Exiting nest at [%v, %v]\n", x+1, y+1)
-	//}
-	return inNest
 }
 
 func parse(lines []string, startingPipe Pipe) (TileMap, PipeTile) {
